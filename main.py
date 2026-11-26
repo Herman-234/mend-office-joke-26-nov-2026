@@ -12,6 +12,7 @@ Candidates considered (SENJATA BARU — 3 drafted, 1 picked):
      -> funny loop, but longer and "Karen" is a cliché.
 """
 
+import os
 from pathlib import Path
 
 # The entry: one line, concrete scene (IT, second monitor, mirror, note).
@@ -27,9 +28,37 @@ def validate(text: str) -> None:
     text.encode("utf-8")
 
 
+def _writable(folder: Path) -> bool:
+    """True when `folder` exists (or can be made) and accepts a write."""
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        probe = folder / ".write-probe"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def pick_output_dir() -> Path:
+    """Grader folder first, local folder last.
+
+    The grading sandbox hands us its output folder through
+    MAKEFUN_OUTPUT_DIR, or mounts /output. Only when neither can be
+    written do we fall back to ./output next to this file, so a
+    read-only repo checkout can never break the run.
+    """
+    env_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "").strip()
+    if env_dir and _writable(Path(env_dir)):
+        return Path(env_dir)
+    if _writable(Path("/output")):
+        return Path("/output")
+    return Path(__file__).resolve().parent / "output"
+
+
 def main() -> None:
     validate(JOKE)
-    out_dir = Path(__file__).resolve().parent / "output"
+    out_dir = pick_output_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
     entry_path = out_dir / "entry.txt"
     entry_path.write_text(JOKE, encoding="utf-8")
